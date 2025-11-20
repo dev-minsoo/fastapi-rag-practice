@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# Test & coverage artifacts
+.pytest_cache/
+
+# Environment variables
+.env
+
+# Database files
+chroma_db/
+
+# Package metadata
+*.egg-info/
+

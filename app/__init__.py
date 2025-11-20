@@ -1,0 +1,2 @@
+"""Initialize FastAPI application package."""
+
