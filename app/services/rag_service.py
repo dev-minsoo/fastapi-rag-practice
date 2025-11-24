@@ -3,8 +3,9 @@ from typing import List
 import chromadb
 from chromadb.utils import embedding_functions
 from sentence_transformers import SentenceTransformer
+from starlette.concurrency import run_in_threadpool
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 class RAGService:
     def __init__(self):
@@ -21,11 +22,15 @@ class RAGService:
             embedding_function=self.embedding_function
         )
         
-        # Initialize OpenAI Client (expects OPENAI_API_KEY in env)
-        self.openai_client = OpenAI()
+        # Initialize Async OpenAI Client (expects OPENAI_API_KEY in env)
+        self.openai_client = AsyncOpenAI()
 
-    def load_and_chunk(self, file_path: str, chunk_size: int = 1000) -> List[str]:
+    async def load_and_chunk(self, file_path: str, chunk_size: int = 1000) -> List[str]:
         """Reads a text file and splits it into chunks."""
+        return await run_in_threadpool(self._load_and_chunk_sync, file_path, chunk_size)
+
+    def _load_and_chunk_sync(self, file_path: str, chunk_size: int = 1000) -> List[str]:
+        """Synchronous implementation of load_and_chunk."""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
             
@@ -67,7 +72,7 @@ class RAGService:
             
         return chunks
 
-    def embed_and_store(self, chunks: List[str]):
+    async def embed_and_store(self, chunks: List[str]):
         """Embeds chunks and stores them in ChromaDB."""
         if not chunks:
             return
@@ -77,16 +82,21 @@ class RAGService:
         ids = [hashlib.md5(chunk.encode()).hexdigest() for chunk in chunks]
         
         # ChromaDB handles embedding generation automatically if we provide the function
-        self.collection.upsert(
+        # Run in threadpool because upsert is blocking
+        await run_in_threadpool(
+            self.collection.upsert,
             documents=chunks,
             ids=ids
         )
 
-    def query(self, question: str, n_results: int = 3) -> List[dict]:
+    async def query(self, question: str, n_results: int = 3) -> List[dict]:
         """Queries the knowledge base for relevant chunks."""
         # Retrieve more chunks initially to allow for re-ranking
         initial_n_results = 50
-        results = self.collection.query(
+        
+        # Run in threadpool because query is blocking
+        results = await run_in_threadpool(
+            self.collection.query,
             query_texts=[question],
             n_results=initial_n_results
         )
@@ -130,12 +140,15 @@ class RAGService:
             
         return []
 
-    def get_all_documents(self):
+    async def get_all_documents(self):
         """Returns all documents in the collection."""
         # get() with no arguments returns all items (up to a limit, usually)
-        return self.collection.get(include=["documents"])
+        return await run_in_threadpool(
+            self.collection.get,
+            include=["documents"]
+        )
 
-    def generate_answer(self, question: str, context_chunks: List[str]) -> str:
+    async def generate_answer(self, question: str, context_chunks: List[str]) -> str:
         """Generates an answer using OpenAI based on the context."""
         if not context_chunks:
             return "I don't have enough information to answer that."
@@ -156,7 +169,7 @@ class RAGService:
         """
         
         try:
-            response = self.openai_client.chat.completions.create(
+            response = await self.openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
@@ -167,15 +180,16 @@ class RAGService:
         except Exception as e:
             return f"Error generating answer: {str(e)}"
 
-    def reset_database(self):
+    async def reset_database(self):
         """Resets the database by deleting and recreating the collection."""
         try:
-            self.client.delete_collection("knowledge_base")
+            await run_in_threadpool(self.client.delete_collection, "knowledge_base")
         except ValueError:
             # Collection might not exist
             pass
             
-        self.collection = self.client.get_or_create_collection(
+        self.collection = await run_in_threadpool(
+            self.client.get_or_create_collection,
             name="knowledge_base",
             embedding_function=self.embedding_function
         )

@@ -32,8 +32,8 @@ async def index_knowledge_base():
         for filename in os.listdir(data_dir):
             if filename.endswith(".txt") or filename.endswith(".md"):
                 file_path = os.path.join(data_dir, filename)
-                chunks = rag_service.load_and_chunk(file_path)
-                rag_service.embed_and_store(chunks)
+                chunks = await rag_service.load_and_chunk(file_path)
+                await rag_service.embed_and_store(chunks)
                 total_chunks += len(chunks)
                 indexed_files.append(filename)
         
@@ -50,10 +50,10 @@ async def search_knowledge_base(q: str = Query(..., description="The search quer
     Searches the knowledge base for relevant information and generates an answer.
     """
     try:
-        results = rag_service.query(q)
+        results = await rag_service.query(q)
         # Extract just the text for the LLM context
         context_chunks = [r["text"] for r in results]
-        answer = rag_service.generate_answer(q, context_chunks)
+        answer = await rag_service.generate_answer(q, context_chunks)
         return {"results": results, "answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,7 +64,7 @@ async def reset_knowledge_base():
     Resets the knowledge base by deleting all data.
     """
     try:
-        rag_service.reset_database()
+        await rag_service.reset_database()
         return {"message": "Knowledge base reset successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -75,6 +75,6 @@ async def inspect_knowledge_base():
     Returns all documents stored in the knowledge base.
     """
     try:
-        return rag_service.get_all_documents()
+        return await rag_service.get_all_documents()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
