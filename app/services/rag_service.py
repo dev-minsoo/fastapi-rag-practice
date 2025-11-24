@@ -84,10 +84,14 @@ class RAGService:
 
     def query(self, question: str, n_results: int = 3) -> List[dict]:
         """Queries the knowledge base for relevant chunks."""
+        # Retrieve more chunks initially to allow for re-ranking
+        initial_n_results = 50
         results = self.collection.query(
             query_texts=[question],
-            n_results=n_results
+            n_results=initial_n_results
         )
+        
+        final_results = []
         
         # results['documents'] is a list of lists (one list per query)
         # results['distances'] is also a list of lists
@@ -95,10 +99,35 @@ class RAGService:
             documents = results['documents'][0]
             distances = results['distances'][0]
             
-            return [
+            # Create a list of dictionaries
+            all_results = [
                 {"text": doc, "score": dist}
                 for doc, dist in zip(documents, distances)
             ]
+            
+            # Re-ranking logic for version numbers
+            import re
+            version_match = re.search(r'(\d+\.\d+\.\d+)', question)
+            if version_match:
+                version = version_match.group(1)
+                relevant_chunks = []
+                other_chunks = []
+                
+                for res in all_results:
+                    # Prioritize chunks that contain the version number
+                    if version in res['text']:
+                        relevant_chunks.append(res)
+                    else:
+                        other_chunks.append(res)
+                
+                # Combine: relevant first, then others
+                final_results = relevant_chunks + other_chunks
+            else:
+                final_results = all_results
+            
+            # Slice to the requested number of results
+            return final_results[:n_results]
+            
         return []
 
     def get_all_documents(self):
@@ -114,8 +143,10 @@ class RAGService:
         context = "\n\n".join(context_chunks)
         
         prompt = f"""
-        You are a helpful assistant. Answer the question based ONLY on the following context.
-        If the answer is not in the context, say "I don't know".
+        You are a helpful assistant. The user is asking a question about a software changelog.
+        Use the provided context to answer the question.
+        If the answer is not explicitly in the context, try to infer it from the changelog entries.
+        If you really cannot find the answer, say "I don't know".
         
         Context:
         {context}

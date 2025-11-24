@@ -7,7 +7,7 @@ client = TestClient(app)
 
 def test_rag_flow():
     # 1. Ensure the knowledge file exists
-    assert os.path.exists("data/knowledge.txt")
+    assert os.path.exists("data/claude_code_changelog.md")
 
     # 2. Index the data
     response = client.post("/rag/index")
@@ -15,16 +15,16 @@ def test_rag_flow():
     assert "Successfully indexed" in response.json()["message"]
 
     # 3. Search for something relevant
-    response = client.get("/rag/search?q=FastAPI")
+    response = client.get("/rag/search?q=Claude")
     assert response.status_code == 200
     results = response.json()["results"]
     assert len(results) > 0
-    # Check if at least one result contains "FastAPI"
-    assert any("FastAPI" in r for r in results)
+    # Check if at least one result contains "Claude"
+    assert any("Claude" in r["text"] for r in results)
 
     # 4. Search for something else
-    response = client.get("/rag/search?q=Embeddings")
+    response = client.get("/rag/search?q=version")
     assert response.status_code == 200
     results = response.json()["results"]
     assert len(results) > 0
-    assert any("Embeddings" in r for r in results)
+    assert any("version" in r["text"] for r in results)
