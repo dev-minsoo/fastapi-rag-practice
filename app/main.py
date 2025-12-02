@@ -5,7 +5,7 @@ import requests
 
 load_dotenv()
 
-from app.routers import rag
+from app.routers import rag, ingest
 
 app = FastAPI(
     title="FastAPI RAG Practice",
@@ -18,6 +18,7 @@ async def health_check():
     return {"status": "ok"}
 
 app.include_router(rag.router)
+app.include_router(ingest.router)
 
 # Gradio Chat Interface
 def predict(message, history):

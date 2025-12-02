@@ -7,13 +7,8 @@ from app.services.rag_service import rag_service
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
-class SearchResult(BaseModel):
-    text: str
-    score: float
+from app.schemas import SearchResponse, SearchResult
 
-class SearchResponse(BaseModel):
-    results: List[SearchResult]
-    answer: str
 
 @router.post("/index")
 async def index_knowledge_base():
@@ -78,3 +73,4 @@ async def inspect_knowledge_base():
         return await rag_service.get_all_documents()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

@@ -72,7 +72,9 @@ class RAGService:
             
         return chunks
 
-    async def embed_and_store(self, chunks: List[str]):
+
+
+    async def embed_and_store(self, chunks: List[str], metadatas: List[dict] = None):
         """Embeds chunks and stores them in ChromaDB."""
         if not chunks:
             return
@@ -86,7 +88,8 @@ class RAGService:
         await run_in_threadpool(
             self.collection.upsert,
             documents=chunks,
-            ids=ids
+            ids=ids,
+            metadatas=metadatas
         )
 
     async def query(self, question: str, n_results: int = 3) -> List[dict]:
